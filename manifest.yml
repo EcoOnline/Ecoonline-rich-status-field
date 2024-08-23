@@ -1,0 +1,42 @@
+modules:
+  jira:customFieldType:
+    - key: ecoonline-rich-status-field
+      name: Ecoonline rich progress field
+      description: Ecoonline rich progress customizable field.
+      type: object
+      formatter:
+        expression: "`${value.progress} ${value.rag}`"
+      schema:
+        properties:
+          progress:
+            type: string
+            searchAlias: progress
+          rag:
+            type: string
+            searchAlias: ProgressRAG
+          bold:
+            type: number
+      render: native
+      resource: main
+      edit:
+        resource: edit
+        render: native
+      contextConfig:
+        resource: config
+        layout: basic
+        render: native
+resources:
+  - key: main
+    path: src/frontend/index.jsx
+  - key: edit
+    path: src/frontend/edit.jsx
+  - key: config
+    path: src/frontend/context-config.jsx
+
+app:
+  runtime:
+    name: nodejs18.x
+  id: ari:cloud:ecosystem::app/3385ffd4-0699-486b-8819-e3a580e4034f
+permissions:
+  scopes:
+    - manage:jira-configuration
