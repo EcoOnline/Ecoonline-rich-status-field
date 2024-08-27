@@ -12,11 +12,16 @@ import ForgeReconciler, {
   ButtonGroup,
   Inline,
   Icon,
+  Lozenge,
+  Select,
   Stack,
-  Box
+  Box,
+  xcss
 } from "@forge/react";
 import { view } from '@forge/bridge';
 import { DEFAULT_CONFIGURATION } from '../data/default_config';
+
+
 
 const ContextConfig = () => {
   const [extensionData, setExtensionData] = useState(null);
@@ -25,7 +30,24 @@ const ContextConfig = () => {
   const [progressList, setProgressList] = useState(null);
   const { handleSubmit, register, getFieldId, getValues, trigger } = useForm();
 
-  console.log("Configuration", configuration);
+  const containerStyles = xcss({
+    width: '70%',
+  });
+
+  const progressEditStyles = xcss({
+    width: '30%'
+  });
+
+  const ragEditStyles = xcss({
+    width: '20%'
+  }); 
+  const boldEditStyles = xcss({
+    width: '20%'
+  }); 
+
+  //console.log("Configuration", configuration);
+
+
 
   useEffect(() => {
     view.getContext().then(({ extension }) => {
@@ -39,16 +61,11 @@ const ContextConfig = () => {
 
   const addProgress = () => {
     setIsLoading(true);
-    let copy = configuration
-    copy.progressList.push({label:undefined, value:Math.max(...configuration?.progressList.map(item => item.value))+1});
-    setConfiguration(copy);
-    setIsLoading(false);
-  };
+    let copy = configuration;
+    const {new_status, new_rag, new_bold} = getValues();
+    //console.log("new rag:", new_rag)
 
-  const changeProgress = (index) => {
-    setIsLoading(true);
-    let copy = configuration
-    copy.progressList.find()
+    copy.progressList.push({label:new_status ? new_status : "New progress", rag:new_rag ? new_rag.value : "undefined", isbold:new_bold ? new_bold.value : 0, value:Math.max(...configuration?.progressList.map(item => item.value))+1}, );
     setConfiguration(copy);
     setIsLoading(false);
   };
@@ -61,29 +78,14 @@ const ContextConfig = () => {
     setConfiguration(copy);
     setIsLoading(false);
     const values = getValues();
-      console.log("submit values:", values);
+      //console.log("submit values:", values);
     trigger();
   };
 
   const onSubmit = async () => {
     try {
       setIsLoading(true);
-      let copy = configuration;
-      const formValues = getValues();
-      console.log("submit values:", formValues);
-      
-      const updatedProgressList = configuration?.progressList.map(item => {
-        // Find the corresponding progress status in form values by matching the progress.value attribute
-        const inputValue = formValues["edit_"+item?.value];
-        if (inputValue !== undefined) {
-          return { ...item, label: inputValue };
-        }
-        return item;
-      }).filter(item => item?.label !== undefined);
-      console.log("updatedProgressList", updatedProgressList);
-      copy.progressList = updatedProgressList;
-      console.log("updated config: ", copy);
-      await view.submit({configuration: copy});
+      await view.submit({configuration: configuration});
     } catch (e) {
       setIsLoading(false);
       console.error(e);
@@ -98,28 +100,63 @@ const ContextConfig = () => {
     <Form onSubmit={handleSubmit(onSubmit)}>
       <FormSection>
         <Text>Available progress statuses</Text>
-        {configuration?.progressList && configuration?.progressList.map((option, index) => (
+        {configuration?.progressList && configuration?.progressList?.map((option, index) => (
 
-          <Box paddingBlock="space.100">
+          
             
             <Inline space="space.200">
-                <Textfield value= {option.label} isDisabled></Textfield> 
-                <Icon glyph="edit" label = "Change status to"/>
-                <Textfield {...register("edit_"+option.value)} />
-                <Button onClick={() => deleteRow(option.value)} appearance = "subtle"> 
-                  <Icon glyph="trash" label="Delete" />
+              <Box paddingBlockEnd="space.100" xcss={containerStyles}>
+                <Lozenge appearance={option?.rag ? option?.rag : "default"} isBold={option?.isbold && option?.isbold === 1 ? true : false}> 
+                  {option?.label ? option.label : "Unknown"} 
+                </Lozenge>
+              </Box>
+              <Box xcss={ragEditStyles} paddingBlockEnd="space.100" paddingInline = "space.300"> 
+                <Button onClick={() => deleteRow(option?.value)} appearance = "subtle"> 
+                  Delete
                 </Button>
+              </Box>
             </Inline>
-          </Box>
-        ))}
-        <Button onClick={() => addProgress()}>Add</Button>
+
+        ))}  
+            <Inline space="space.200">
+              <Box paddingBlockEnd="space.100" xcss={progressEditStyles}>
+                <Textfield {...register('new_status')} defaultValue="New progress"/> 
+              </Box>
+              <Box paddingBlockEnd="space.100" xcss={ragEditStyles}>
+                <Select {...register('new_rag')} 
+                  options  = {configuration?.ragList?.map((option) => (
+                    {value: option.value, label: option.label}
+                  ))}
+                  defaultValue ={{value:"default", label:"Grey"}}
+                />
+              </Box>
+              <Box paddingBlockEnd="space.100" xcss={boldEditStyles}>
+                <Select 
+                  {...register('new_bold') }
+                  options={[
+                    {value: 0, label: "No"},
+                    {value: 1, label: "Yes"}]
+                  }
+                  defaultValue={{
+                    value: 0,
+                    label: "No"
+                  }}
+                />
+              </Box>
+              <Box xcss={ragEditStyles} padpaddingBlockEnddingBlock="space.100">
+                <Button onClick={() => addProgress()} appearance = "subtle">Add</Button>
+              </Box>
+            </Inline>
+        
       </FormSection>
       <FormFooter >
-        <ButtonGroup>
-          <Button appearance="subtle" onClick={view.close}>Close</Button>
-          <LoadingButton appearance="primary" type="submit" isLoading={isLoading}>
-            Submit
-          </LoadingButton>
+        <ButtonGroup appearance="primary">
+          <Box xss={containerStyles}>
+            <Button appearance="subtle" onClick={view.close}>Close</Button>
+            <LoadingButton appearance="primary" type="submit" isLoading={isLoading}>
+              Submit
+            </LoadingButton>
+          </Box>
         </ButtonGroup>
 
       </FormFooter>

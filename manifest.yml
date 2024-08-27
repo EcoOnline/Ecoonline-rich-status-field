@@ -1,20 +1,62 @@
 modules:
   jira:customFieldType:
-    - key: ecoonline-rich-status-field
-      name: Ecoonline rich progress field
-      description: Ecoonline rich progress customizable field.
+    - key: ecoonline-key-results-field
+      name: Ecoonline Key Results field
+      description: Ecoonline Key Results field type.
       type: object
       formatter:
-        expression: "`${value.progress} ${value.rag}`"
+        expression: "`${value.summary}`"
       schema:
         properties:
-          progress:
+          result_0:
+            result:
+              type: string
+            status:
+              type: string
+            eta:
+              type: date
+            isresolved:
+              type: number
+          result_1:
+            result:
+              type: string
+            status:
+              type: string
+            eta:
+              type: date
+            isresolved:
+              type: number
+          result_2:
+            result:
+              type: string
+            status:
+              type: string
+            eta:
+              type: date
+            isresolved:
+              type: number
+          result_3:
+            result:
+              type: string
+            status:
+              type: string
+            eta:
+              type: date
+            isresolved:
+              type: number
+          result_4:
+            result:
+              type: string
+            status:
+              type: string
+            eta:
+              type: date
+            isresolved:
+              type: number
+          summary:
             type: string
-            searchAlias: progress
-          rag:
-            type: string
-            searchAlias: ProgressRAG
-          bold:
+            searchAlias: summary
+          resultCount:
             type: number
       render: native
       resource: main
@@ -32,11 +74,10 @@ resources:
     path: src/frontend/edit.jsx
   - key: config
     path: src/frontend/context-config.jsx
-
 app:
   runtime:
     name: nodejs18.x
-  id: ari:cloud:ecosystem::app/3385ffd4-0699-486b-8819-e3a580e4034f
+  id: ari:cloud:ecosystem::app/75a25932-90dd-4fed-88b7-a2c5d2e32ec4
 permissions:
   scopes:
     - manage:jira-configuration

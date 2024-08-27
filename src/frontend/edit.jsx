@@ -9,38 +9,71 @@ import ForgeReconciler, {
   FormFooter,
   ButtonGroup,
   LoadingButton,
+  Lozenge,
   Button,
   Box,
-  Inline
+  Inline, 
+  Text,
+  TextArea,
+  DatePicker,
+  xcss
 } from "@forge/react";
 import { view, requestJira } from '@forge/bridge';
-import { DEFAULT_CONFIGURATION } from '../data/default_config';
+import { DEFAULT_CONFIGURATION, DEFAULT_VALUE, TABLE_HEADERS } from '../data/default_config';
+import { newFieldKey } from '../utils/utils';
 
+const containerStyles = xcss({
+  width: '50%',
+});
+
+const progressEditStyles = xcss({
+  width: '30%'
+});
+
+const ragEditStyles = xcss({
+  width: '30%'
+}); 
+const boldEditStyles = xcss({
+  width: '20%'
+}); 
+
+
+const heads = { ...TABLE_HEADERS};
 const Edit = () => {
-  const [renderContext, setRenderContext] = useState(null);
-  const [fieldValue, setFieldValue] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const { handleSubmit, register, getFieldId, getValues } = useForm();
-  const [field_config, setFieldConfig] = useState(() => ({...DEFAULT_CONFIGURATION}));
   const defaultConfig = {...DEFAULT_CONFIGURATION};
+  const defaultValue = {...DEFAULT_VALUE};
+  const [renderContext, setRenderContext] = useState(null);
+  const [fieldValue, setFieldValue] = useState(defaultValue);
+  const [isLoading, setIsLoading] = useState(false);
+  const { handleSubmit, register, getFieldId, getValues, trigger } = useForm();
+  const [field_config, setFieldConfig] = useState(null);
+  const [propArray, setPropArray] = useState([]);
+  const [resultCount, setResultCount] = useState([]);
+
   const ragList = defaultConfig.ragList;
+
+  //console.log("fieldValue:", fieldValue)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const context = await view.getContext();
-        console.log("context:", context);
-  
+
+        //console.log("context.extension:", context.extension);
+        //console.log("context.extension.renderContext:", context.extension?.renderContext);
         if (context?.extension?.renderContext) {
           setRenderContext(context.extension.renderContext);
+          //console.log("context.extension:", context.extension);
         }
   
-        if (context?.extension?.fieldValue) {
-          setFieldValue(context.extension.fieldValue);
+       if (context?.extension?.fieldValue && context?.extension?.fieldValue?.resultCount) {
+          setFieldValue(context?.extension?.fieldValue);
+          convertFieldValueToArray(context?.extension?.fieldValue);
+          setResultCount(context?.extension?.fieldValue?.resultCount || 0);
         }
-  
+         
         if (context?.extension?.configuration) {
-          console.log("context config:", context.extension.configuration);
+         //console.log("context config:", context.extension.configuration);
           setFieldConfig(context.extension.configuration);
         }
   
@@ -49,30 +82,83 @@ const Edit = () => {
         const response = await requestJira(`/rest/api/3/app/field/${fieldId}/context/configuration?issueid=${issueId}`);
         const data = await response.json();
         const contextConfig = data?.values[0]?.configuration;
-        console.log("data from api", data);
+        //console.log("data from api", data);
         setFieldConfig(prevConfig => ({
           ...prevConfig,
           progressList: contextConfig?.progressList || defaultConfig.progressList
         }));
-        console.log("progressList from context: ", field_config?.progressList );
+        //console.log("fieldConfig: ", field_config);
+      
       } catch (error) {
         console.error('Error fetching data:', error);
       }
     };
-  
     fetchData();
+
   }, []);
 
+  const convertFieldValueToArray = (values) => {
+    //console.log("raw values :", values);
+    let valueArray = []
+    
+    for (let index=0; index < values.resultCount; index++) {
+      valueArray[index] = {};
+      valueArray[index]["result"] = values[`result_${index}`]?.result ? values[`result_${index}`].result : "";
+      valueArray[index]["status"] = values[`result_${index}`]?.status ? values[`result_${index}`].status : "";
+      valueArray[index]["eta"] = values[`result_${index}`]?.eta ? values[`result_${index}`].eta : "";
+      valueArray[index]["isdeleted"] = false;
+      valueArray[index]["key"] = newFieldKey(16);
+    }
+    //console.log("values array:", valueArray);
+    setPropArray(valueArray);
 
-  const onSubmit = async () => {
+  };
+
+  const addResult = () => {
+    let copy = propArray;
+    copy.push({
+      result:"",
+      status:"",
+      eta:"",
+      isdeleted:false,
+      key: newFieldKey(16)
+    });
+    setResultCount(resultCount+1);
+    setPropArray(copy);
+    //console.log("props on add:", copy);
+    trigger();
+  };
+
+  const deleteResult = (delIndex) => {
+    let copy = propArray;
+    copy[delIndex].isdeleted=true;
+    setPropArray(copy);
+    setResultCount(resultCount-1);
+    trigger();
+  };
+
+
+    const onSubmit = async () => {
     try {
       setIsLoading(true);
-      const { progress, rag, bold } = getValues();
-      const progressValue = progress?.value ? progress.value : fieldValue?.progress;
-      const ragValue = rag?.value ? rag.value : fieldValue?.rag;
-      const boldValue = bold?.value ? bold.value : fieldValue?.bold;
-
-      await view.submit({"progress":progressValue, "rag":ragValue, "bold":boldValue});
+      let newValue={};
+      const formValues = getValues();
+      console.log("form values: ", formValues);
+      let propCount = 0;
+      propArray.map((prop, index) => {
+        if (!prop.isdeleted) {
+          newValue[`result_${propCount}`] = {
+            result: formValues[`result_${prop.key}`] || prop.result,
+            status:formValues[`status_${prop.key}`]?.label || prop.status,
+            eta: formValues[`eta_${prop.key}`] || prop.eta
+          };
+          propCount++;
+        }
+      })
+      newValue["resultCount"] = +resultCount;
+      //console.log("update result_1 value: ", newValue["result_1"]);
+      console.log("update value", newValue);
+      await view.submit(newValue);
 
       
     } catch (e) {
@@ -80,116 +166,64 @@ const Edit = () => {
       console.error(e);
     }
   };
-
-  return renderContext === 'issue-view' ? (
+  
+  return  renderContext === 'issue-view' ? (
     
     <Form onSubmit={handleSubmit(onSubmit)}>
-              <Label labelFor={getFieldId('progress')}>
-                Progress status
-              </Label>
-              <Select {...register('progress')} options=
-                {field_config?.progressList?.map((option) => (
-                  {value: option.label, label: option.label}
-                ))}
-                defaultValue = {{
-                  label: fieldValue?.progress,
-                  value: fieldValue?.progress,
-                }}
-              />
-              <Label labelFor={getFieldId('rag')}>
-                Color
-              </Label>
-              <Select
-                {...register('rag')}
-                options={ragList?.map((option) => ({
-                  value: option.label,
-                  label: option.label
-                }))}
-                defaultValue={{
-                  label: fieldValue?.rag,
-                  value: fieldValue?.rag
-                }}
-              />
-              <Label labelFor={getFieldId('bold')}>
-                Bold
-              </Label>
-              <Select
-                {...register('bold')}
-                options={[
-                  {value: 0, label: "No"},
-                  {value: 1, label: "Yes"}]
-                }
-                defaultValue={{
-                  value: fieldValue?.bold === 1 ?  1 : 0,
-                  label: fieldValue?.bold === 1 ?  "Yes" : "No"
-                }}
-              />
 
+        {propArray.map((prop, index) => (
+          <Inline space="space.200">
+          <Box paddingBlockEnd="space.100" xcss={containerStyles}>
+            <TextArea {...register(`result_${prop.key}`)} defaultValue = {prop.result} isDisabled={prop.isdeleted}/>
+          </Box>
+          <Box xcss={ragEditStyles} paddingBlockEnd="space.100" paddingInline = "space.100"> 
+            <Select {...register(`status_${prop.key}`) }
+                    options = 
+                    {field_config?.progressList?.map((option) => (
+                      {value: option.value, label: option.label}
+                    ))}
+                    defaultValue = {{
+                      label: prop.status,
+                      value: prop.status,
+                    }}
+                    isDisabled={prop.isdeleted}
+                    />
+            </Box>
+            <Box paddingBlockEnd="space.100" xcss={ragEditStyles} isDisabled={prop.isdeleted}>
+                  <DatePicker {...register(`eta_${prop.key}`)} 
+                  defaultValue = {prop.eta}/>
+            </Box>
+            <Box paddingBlockEnd="space.100" xcss={boldEditStyles}>
+              <Button appearance="subtle" onClick={() => deleteResult(index) } isDisabled={prop.isdeleted}>Delete</Button>
+            </Box>
+          </Inline>    
+        ))}     
         <FormFooter>
-          <ButtonGroup>
+          <ButtonGroup> 
+            {(resultCount < 5) ? 
+              (<Button appearance="subtle" onClick={() => addResult()}>Add</Button>):""}
             <Button appearance="subtle" onClick={view.close}>Close</Button>
             <LoadingButton appearance="primary" type="submit" isLoading={isLoading}>
               Submit
             </LoadingButton>
           </ButtonGroup>
         </FormFooter>
-      {field_config?.progressList.map((option) =>  (
-        <Box paddingBlockEnd="space.300"></Box>
-      ))} 
-      
+        {field_config?.progressList.map((option) =>  (
+          <Box paddingBlockEnd="space.300"></Box>
+        ))} 
     </Form>
   ) : (
     <Form onSubmit={handleSubmit(onSubmit)}>
       <Inline>
             <Box>
-              <Label labelFor={getFieldId('progress')}>
+              <Text>
                 Progress status
-              </Label>
-              <Select {...register('progress')} options=
-                {field_config?.progressList?.map((option) => (
-                  {value: option.label, label: option.label}
-                ))}
-                defaultValue = {{
-                  label: fieldValue?.progress,
-                  value: fieldValue?.progress,
-                }}
-              />
-            </Box>
-            <Box>
-              <Label labelFor={getFieldId('rag')}>
-                Color
-              </Label>
-              <Select
-                {...register('rag')}
-                options={ragList.map((option) => ({
-                  value: option.label,
-                  label: option.label
-                }))}
-                defaultValue={{
-                  label: fieldValue?.rag,
-                  value: fieldValue?.rag
-                }}
-              />
-            </Box>
-            <Box>
-              <Label labelFor={getFieldId('bold')}>
-                Bold
-              </Label>
-              <Select
-                {...register('bold')}
-                options={[
-                  {value: 0, label: "No"},
-                  {value: 1, label: "Yes"}]
-                }
-                defaultValue={{
-                  value: fieldValue?.bold === 1 ?  1 : 0,
-                  label: fieldValue?.bold === 1 ?  "Yes" : "No"
-                }}
-              />
+              </Text>
+
             </Box>
           </Inline>
     </Form>
-  );
+  )
 };
 
 ForgeReconciler.render(
