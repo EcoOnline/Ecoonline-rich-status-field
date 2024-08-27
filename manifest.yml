@@ -1,11 +1,11 @@
 modules:
   jira:customFieldType:
     - key: ecoonline-rich-status-field
-      name: Ecoonline rich progress field
-      description: Ecoonline rich progress customizable field.
+      name: Ecoonline rich progress rag field
+      description: Ecoonline rich progress/rag customizable field.
       type: object
       formatter:
-        expression: "`${value.progress} ${value.rag}`"
+        expression: "`${value.progress}`"
       schema:
         properties:
           progress:
@@ -13,7 +13,6 @@ modules:
             searchAlias: progress
           rag:
             type: string
-            searchAlias: ProgressRAG
           bold:
             type: number
       render: native
